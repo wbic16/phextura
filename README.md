@@ -1,5 +1,7 @@
 # phextura
 
+**Phextura: Rigorous Delight.**
+
 A modern replacement for LaTeX, designed to utilize phext from the ground up.
 
 ## The name
@@ -49,6 +51,13 @@ manifest, and checksums — each with a named role in the design.
 - [DESIGN.md](DESIGN.md) — the document model, the corpus layout, how
   references, bibliography, media embedding, and styles work, and the
   explicit contrast with expl3/l3kernel.
+- [PRINCIPLES.md](PRINCIPLES.md) — what phextura should be, derived from
+  first principles (what a paper, a reference, typesetting, reading, and
+  authorship *are*), stress-tested by a Knuth-register critic, and used
+  to judge the design. The motto above is its grading standard: every
+  principle and every design element must be both rigorous (derivable,
+  checkable, costed) and delightful — rigor alone is homework, delight
+  alone is a toy.
 
 ## Status
 

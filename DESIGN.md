@@ -49,21 +49,59 @@ Within the paper, the Y coordinate's Collection component names the division:
 | 6 | Metadata | Title, authors, abstract, provenance, checksum manifest |
 
 Body addressing: Y.Book is the chapter. Within a chapter, X addresses
-(Chapter.Section.Scroll) read as (group, section, block); the group component
-is 1 in the common case and exists for books long enough to group sections.
+(Chapter.Section.Scroll) read as (section, subsection, block): the body
+address provides two sectioning levels below the chapter. A third level
+(subsubsection, paragraph-sections in LaTeX terms) is carried by heading
+blocks (below), which are addressable as blocks — citation granularity is
+preserved at block level even though the third level is not a coordinate
+component. That is a stated limitation of the layout, recorded, not hidden.
+
 The block — one scroll — is the smallest authored unit: a paragraph, an
-equation, a theorem, a proof. Its role is declared by an optional first-line
-tag, plain text:
+equation, a theorem, a proof. Its role is declared by a first-line role
+line, plain text: a primary role plus optional secondary role atoms:
 
 ```
 @theorem
 Let G be a finite group and p a prime dividing |G|...
 ```
 
-Untagged blocks are prose paragraphs. Defined roles: `@theorem`, `@lemma`,
-`@definition`, `@proof`, `@equation`, `@figure`, `@caption`, `@quote`,
-`@code`, `@footnote`. The tag is data in the scroll, so a renderer, a linter,
-and a human all read the same fact the same way.
+```
+@figure +evidence
+…
+```
+
+An untagged block is not role-less: its role is `prose`, explicitly. The
+normative core vocabulary is `@theorem`, `@lemma`, `@proposition`,
+`@corollary`, `@assumption`, `@definition`, `@proof`, `@equation`,
+`@equationgroup`, `@figure`, `@caption`, `@quote`, `@code`, `@footnote`,
+`@heading`, `@remark`, `@prose`. Roles are an **open vocabulary over this
+normative core**: a paper may declare extension roles in its Collection 6
+manifest (which also records the vocabulary version), and renderers must
+know the core; a role outside both is a lint error, never a silent
+free-text fallback. (Field evidence: the first demo paper needed
+proposition, corollary, assumption — load-bearing, referenced like
+theorems — and remark, none of which the original closed list had.)
+
+A **heading** is a block with role `@heading`; its text is the heading
+text. Headings are data, never markup prefixes smuggled into prose.
+
+An **equation group** (a multi-row display referenced as a whole) is an
+`@equationgroup` header scroll followed by its row `@equation` scrolls.
+References to the group name the header; references to a row name the
+row. The render overlay numbers rows with letter suffixes by position
+within the group — grouping is recorded in the corpus, so the numbering
+is regenerable from traversal, like every other display number (§3).
+
+A claim-bearing block may carry **warrant edges** as lines after its
+role line; the edge grammar and its validation rules are in §3.
+
+This design defines block structure only. Inline typographic structure
+(emphasis, defined terms, and the like) is plain text by stated
+convention; an inline convention is an open question (§10), not an
+unstated assumption.
+
+The role line is data in the scroll, so a renderer, a linter, and a
+human all read the same fact the same way.
 
 Addresses are deterministic: given the outline, any address can be computed
 by hand. Unused components sit at 1. Nothing is ever addressed by a string
@@ -73,41 +111,130 @@ the author invented and a program merely hopes matches.
 
 To refer to a theorem, an equation, a section, or a figure, the author
 writes its coordinate in the text. There is no `\label`, no `\ref`, and no
-second pass:
+rerun-until-it-settles:
 
 - In the phext editor, an address written in text is automatically a
   hyperlink to that scroll (verified behavior of Phext Edit). The reference
   and the link are the same object.
-- Validation is one pass over the corpus: parse each written coordinate
-  (libphext `Coordinate: TryFrom`, which in 0.5.0 properly returns
-  `Err(PhextParseError)`), `fetch` it, and report any coordinate that does
-  not resolve — with the coordinate of the scroll that contains the bad
-  reference. A dangling reference is a lint error at a known location, not a
-  `??` discovered in a PDF.
-- Display numbers ("Theorem 3.2", "Figure 5", "§4") are a **render-time
-  overlay**, computed from traversal order. They are never stored, so
-  inserting a theorem renumbers nothing by hand and breaks nothing: numbers
-  are views; coordinates are identity. This deletes LaTeX's entire
+- A written reference is recognised by the coordinate grammar (libphext
+  `Coordinate: TryFrom`, which in 0.5.0 properly returns
+  `Err(PhextParseError)`). What counts as a written reference must be
+  *decidable*: coordinate-shaped strings occur in ordinary prose (version
+  numbers, section-like numerals), and the grammar's collision surface is
+  the validator's stated problem — a reference that is missed silently,
+  or flagged falsely, is a reference that rots silently, one step removed.
+- Validation scans the corpus's **non-opaque scrolls** (the §5 opacity
+  rule: hoisted payload scrolls and media payloads are excluded — a
+  payload may contain coordinate-shaped substrings that are not
+  references). Cost, stated: Θ(B + S + D) expected time (B = corpus
+  bytes, S = scrolls, D = distinct targets; the expected case assumes a
+  hash index), Θ(B + S + R) space (R = written references), performed
+  as roughly three traversals — enumerate, index, resolve. Without the
+  index the cost is Θ(B + R·S); the design does not claim
+  otherwise. Any coordinate that does not resolve is reported with the
+  coordinate of the scroll that contains it. A dangling reference is a
+  lint error at a known location, not a `??` discovered in a PDF.
+- Display numbers (“Theorem 3.2”, “Figure 5”,
+  “§4”) are a **render-time overlay**, computed by a single
+  traversal with running counters per (role, section) class —
+  Θ(N) in body blocks. They are never stored, so inserting a theorem
+  renumbers nothing by hand and breaks nothing: numbers are views;
+  coordinates are identity. This deletes LaTeX's entire
   label/counter/rerun complex (warts W4, W5, W27).
+
+**One float, one address.** A figure or table has exactly one address
+— its media scroll (Collection 3). Placement in the argument is a
+*marker*: a body scroll whose content is the float's coordinate, stating
+“render it here.” References to the float name the float's own
+address, never the marker's; a marker is not a citable identity for the
+float. (A reference that can land on two addresses is not a reference.
+Field evidence: an early demo converter gave every float two identities
+and 27 in-text references silently landed on placement markers.)
+
+**Nested displays are extracted.** Displayed content inside a host block
+(an equation inside a proof) that is itself referenced gets its own
+scroll, placed immediately after its host; the host's text carries the
+coordinate at the display's position. Unreferenced displays may remain
+inline in the host. A proof's referenced interior is therefore
+addressable content, never opaque text.
+
+**Citations have two positions.** A parenthetical citation is the
+bibliography entry's coordinate alone; the renderer generates its label.
+A narrative citation (“Jain et al. (2026) show…”) is prose:
+the author writes the noun phrase in the text and places the entry's
+coordinate immediately after it as the reference; a renderer may fold
+the coordinate into a link on the phrase. A bare coordinate is never
+made to do the grammatical work of a noun phrase.
+
+### Warrant edges
+
+A claim's warrant is data (see PRINCIPLES.md, P11). A claim-bearing
+block carries zero or more warrant edges as lines after its role line:
+
+```
+warrant: <kind> <target-coordinate(s)> [asserted-by …] [basis …]
+```
+
+Kinds: `formal-proof`, `prose-proof`, `citation`, `measurement`,
+`assumption`, `conjecture`, `fiction-device`, `stipulation`,
+`refutation`. Validation is per kind, mechanically:
+
+- `formal-proof`: the declared checker **runs and accepts** the proof
+  against this claim's statement scroll. Existence of a proof scroll is
+  not validation. (Until the native proof format exists, this kind is
+  available only via a hoisted checker payload that actually checks
+  — §5.1.)
+- `prose-proof`: target resolves and is role-tagged `@proof`; displayed
+  as “proof (prose) at ⟨coordinate⟩,” never as a bare
+  “proved.”
+- `measurement`: targets are a data scroll and a code-or-method scroll,
+  both checksummed; validation checks resolution and checksum agreement.
+- `citation`: target resolves, and the edge records the target
+  edition's checksum — an upstream retraction then registers as an
+  edition change instead of being silently inherited.
+- `assumption`, `conjecture`, `fiction-device`, `stipulation`: author
+  stances, no target required, displayed as stances.
+
+Displayed status (“Theorem — proved”) is a view computed
+from the edges under a stated policy. The author assigns edges; checkers
+assign validation results; venues and readers assign display policy. No
+party both asserts and certifies. Edges are added, never silently
+edited: a `refutation` edge supersedes by addition, so the history of
+what was believed, when, and why it changed is itself corpus data.
 
 ## 4. Bibliography without a pipeline
 
-A bibliography entry is one scroll in Collection 2, fields as plain lines:
+A bibliography entry is one scroll in Collection 2. An entry is
+**both** structured fields and text: field lines where structured data
+exists, and a `text:` line — always present — carrying the entry
+exactly as published:
 
 ```
 author: A. Grothendieck
 title: Revêtements étales et groupe fondamental (SGA 1)
 year: 1971
+text: A. Grothendieck, Revêtements étales et groupe fondamental (SGA 1), 1971
 ```
 
-A citation in body text is the entry's coordinate. The rendered bibliography
-is a traversal of the cited entries — in citation order or sorted, a
-renderer choice. There is no `.bib` file, no `.bbl`, no external program, and
-no citation-style programming language: a citation style is a style scroll
-(Collection 4) declaring field order and punctuation. Duplicate detection
-across entries uses libphext `soundex_v1` on author names as a first-pass
-fuzzy aid (it is a phonetic hash; phextura uses it for candidate grouping
-only, never as proof of identity).
+Real bibliographies are semi-structured: years hide inside author–year
+tags, venues split across spans, some entries expose no parseable year at
+all. The `text:` line is therefore normative, not a fallback: fields are
+an index over the entry, the text is the entry. A citation in body text
+is the entry's coordinate (§3, including the narrative-position rule).
+The rendered bibliography is a traversal of the cited entries — in
+citation order or sorted, a renderer choice. There is no `.bib` file, no
+`.bbl`, no external program, and no citation-style programming language:
+a citation style is a style scroll (Collection 4) declaring field order
+and punctuation.
+
+Authors are plain strings in this design. Duplicate detection across
+entries uses libphext `soundex_v1` on author names as a first-pass fuzzy
+aid (it is a phonetic hash; phextura uses it for candidate grouping
+only, never as proof of identity). Cross-paper author identity —
+deduplication and disambiguation of the same person across papers —
+is **not** solved by this design and is not claimed: it would require a
+shared author registry, which is a separate component (see the Pass 3
+proposals).
 
 ## 5. Media and embedded documents live inside the paper
 
@@ -141,7 +268,31 @@ This deletes `\includegraphics`, `\input`-by-path, driver-specific
 
 A paper can therefore carry its own evidence: the dataset behind Figure 3,
 the code that produced it, and the supplementary proof are scrolls in the
-same corpus, citable by the same coordinates as the theorems.
+same corpus, citable by the same coordinates as the theorems. Carrying is
+the floor, not the achievement. What the corpus records is a
+**provenance graph**: an evidence scroll (role `@figure +evidence`, a
+dataset, a table) carries a **produced-by edge** naming the coordinate
+and checksum of the code scroll that produced it, the coordinates and
+checksums of its inputs, an environment declaration (the §5.1
+manifest's toolchain entries are the anchor), and the output's own
+checksum recorded at generation time. Produced-by edges are mandatory
+for evidence-tagged scrolls and are validated like references (§3):
+an evidence scroll without a valid edge fails validation. That buys
+tamper-evidence and audit. It does not by itself buy reproduction:
+re-running the pipeline and comparing output checksums is a stronger,
+opt-in act, priced per pipeline, never folded into the cost of
+validation. (The name for the stronger property — a
+*reproducibility weave*, with the run-traversal specified as a
+topological traversal of the produced-by graph — is defined in
+PRINCIPLES.md; this design claims the provenance graph.)
+
+**Closure is relative to the manifest.** The paper is closed iff every
+dependency of rendering and checking is either a scroll in the corpus or
+a line in the Collection 6 manifest naming the external dependency with
+the checksum or version that satisfies it. Fonts and the renderer
+itself are honest manifest entries, not silent exceptions. Anything
+neither in the corpus nor in the manifest is a closure violation,
+mechanically detectable.
 
 ### 5.1 Self-extracting papers
 
@@ -188,13 +339,43 @@ The native format, when it comes, is defined by what it must be:
   global proof namespace (the same wart as §6, one system deeper);
 - verification by a small reader-side checker whose full behavior can be
   specified briefly and re-implemented independently, so no single
-  implementation is the format. Metamath is the standing existence proof
-  that a text-first proof format with a tiny verifier works.
+  implementation is the format. Metamath (verifier ≈300 lines,
+  substitution as sole rule) is the standing existence proof that a
+  small checker is possible for a format optimised for its checker;
+  its proofs are famously not prose-readable, so it is no existence
+  proof for this design's actual target — small checker *and*
+  readable proofs *and* step-addressability. That conjunction is the
+  open problem, stated at its true difficulty. Two related precisions:
+  the trusted-base comparison for any checker is kernel-to-kernel
+  (Lean's kernel is small; its elaborator and toolchain are the large
+  surface and need not be trusted for checking), and a manifest
+  checksum gives tamper-evidence, not authorship — authorship
+  requires a signature anchored outside the corpus, or is recorded as
+  self-asserted.
 
 Stated honestly: phextura absorbs the prover as cargo and dissolves the
 paper/proof boundary; it does not replace the checker's kernel or the
 proof language — the checker remains itself, carried rather than competed
 with.
+
+### 5.2 Review and marginalia are corpora
+
+Review is not a process around the paper; its product is a corpus. An
+annotation corpus is a sibling phext whose scrolls point at the reviewed
+paper's coordinates (edition-qualified: the paper's manifest checksum
+plus the coordinate), so every comment is navigable from remark to the
+exact scroll it addresses, and author replies are scrolls in the same
+space, pointing back. Marginalia ride the same provenance discipline as
+everything else (§5, PRINCIPLES.md P10): who wrote an annotation,
+when, and — for machine-generated annotation — which program produced
+it, are recorded in the annotation corpus itself.
+
+Machine-generated review is **labelled as simulation everywhere it
+appears**: a generated critique encodes the standards it was distilled
+from, confers no authority, and is never presented as any person's
+actual words or endorsement. (Simulated reviewer *personas* that wake
+when a paper is opened were evaluated in the design loop and are a
+proposal for Will, not part of this design — see PRINCIPLES.md.)
 
 ## 6. Styles are addressed scrolls, not a global namespace
 
@@ -216,19 +397,44 @@ Consequences, each the inverse of a wart:
   reference; repeated *computation* is Rust in the renderer. Nothing in the
   document layer expands (W7, W8, W25).
 
+Stated plainly, what a style scroll is: a **parameter assignment** —
+named quantities given values, stored as addressed data. This design
+defines **no layout constraint vocabulary and no solver**: there are no
+document-level equations, no unknowns, and no optimisation over blocks.
+Paragraph breaking in a future PDF backend adopts total-fit optimisation
+(§7); page breaking and float placement have no such classical
+optimum and are not claimed to. A priced constraint vocabulary for
+block layout is an open requirement (§10, and PRINCIPLES.md for its
+minimal specification). When a backend does solve any layout problem,
+the solver's identity and version are part of the rendering definition
+and are recorded in the manifest — two solvers reaching different
+optima otherwise produce two papers from one corpus.
+
 ## 7. Rendering is a traversal
 
-Rendering a phextura paper is a single pass:
+Rendering a phextura paper is a defined traversal, in bounded passes
+whose costs are stated (§3 gives the validation cost; nothing here
+claims to be a single pass):
 
 1. **Load:** `explode` the `.phext` file into scrolls.
-2. **Validate:** every coordinate written in text `fetch`es; every media
-   header's `checksum` matches its payload; every cited bibliography scroll
-   exists. Failures are reported by coordinate.
-3. **Traverse:** enumerate the body subspace (`get_subspace_coordinates`)
-   and walk it in coordinate order (`next_scroll`), resolving each reference
-   by `fetch` as it is met — references are resolved by construction, so
-   there is nothing to rerun.
-4. **Present:** apply the governing style scrolls; emit the backend format.
+2. **Validate:** every coordinate written in a non-opaque scroll
+   `fetch`es; every media header's `checksum` matches its payload; every
+   cited bibliography scroll exists; every evidence scroll's
+   produced-by edge is valid; `formal-proof` warrant edges are checked
+   by running their declared checker. Failures are reported by
+   coordinate.
+3. **Traverse:** the canonical reading order is *defined*, not assumed:
+   the Body division in coordinate order, with referenced non-body
+   units (figures, footnotes, media) rendered at their reference sites;
+   the remaining divisions in Collection order for validation and
+   derived matter. Enumerate the body subspace
+   (`get_subspace_coordinates`) and walk it (`next_scroll`), resolving
+   each reference by `fetch` as it is met — references are resolved
+   by construction, so there is nothing to rerun. HTML rendering is
+   Θ(B + D) expected.
+4. **Present:** apply the governing style scrolls; emit the backend
+   format. Layout beyond the traversal is UNPRICED in this design: no
+   block-layout solver is defined (§6, §10).
 
 Backends: HTML is the native first target (a coordinate becomes a URL via
 `Coordinate::to_urlencoded`). A print/PDF backend is a layout engine behind
@@ -290,9 +496,10 @@ maps as follows:
 | Document model | 1-D character stream (unchanged from 1978) | Addressed corpus of scrolls |
 | Programming layer | A disciplined library *inside* macro expansion | Ordinary Rust over libphext; the document executes nothing |
 | Data structures | `seq`/`prop`/`tl` implemented as macro encodings | The corpus itself; divisions are subspaces |
-| References | String labels, `.aux`, multi-pass, can dangle | Coordinates, one pass, validated by fetch |
+| References | String labels, `.aux`, multi-pass, can dangle | Coordinates, mechanically validated at stated cost; dangling = lint error at the pointing scroll |
 | Bibliography | External `.bib`/`.bbl` pipeline | Entry scrolls in the corpus |
 | Media | External files by path | Scrolls inside the corpus (§5) |
+| Claim warrant | Typography and convention | Warrant edges as corpus data; display computed by policy (§3) |
 | Namespaces | Naming grammar by convention (`\__module_`) | Coordinate regions by construction |
 | Styles/packages | Global macros, load order | Addressed style scrolls, explicit composition |
 | Errors | Expansion-stack context | Coordinate + scroll that contains the fault |
@@ -322,7 +529,35 @@ of the author's.
 - Equation *entry* syntax inside a scroll (a math notation) is deliberately
   unspecified here: an equation scroll holds notation as text, and choosing
   that notation is a separate design that must not be allowed to grow into
-  a new macro language by accident.
+  a new macro language by accident. One requirement is already forced by
+  field evidence: whatever notation is chosen, a paper's own definitions
+  (its preamble macros, in LaTeX terms) need a declared home in the corpus
+  — interim practice stores verbatim LaTeX source whose paper-level
+  macros dangle semantically even when every coordinate resolves. Stored
+  math must be self-contained math.
+- The layout constraint vocabulary (§6) is an open requirement: the
+  minimal specification — measurable block geometry, inter-block glue,
+  named penalty classes, a single stated objective, feasibility
+  thresholds with specified degradation, a named solver pinned in the
+  manifest, and scope honesty across line/page/float breaking — is
+  in PRINCIPLES.md. Until it exists, every layout claim in this design
+  is UNPRICED.
+- The warrant graph's **display policy** (§3) — how a reader
+  distinguishes formal proof, prose proof, measurement, and stance at a
+  glance without trusting the author — is specified as an obligation,
+  not yet as a design; it wants testing on a paper with a conditional
+  proof and a retracted citation.
+- Delight is an obligation with a measuring instrument still to build:
+  a benchmark suite over a real corpus (keystrokes, editor commands,
+  off-screen decisions per common operation, with targets and method).
+  Until it is run, delight claims for this design are provisional.
+- An inline typographic convention (emphasis, defined terms) inside a
+  block is undefined; block content is plain text by stated convention
+  (§2). Settling it is a notation design, like math entry, and is
+  not to be smuggled in as markup by a converter.
+- The `@footnote` path is unexercised by the first demo (its paper had
+  no footnotes). The follow-up test is named: tracker Paper 012
+  (arXiv:2611.11959, 16 footnotes).
 - A phext-native proof format is an explicit open research problem: format
   TBD. §5.1 states its requirements — plain-text proof scrolls,
   coordinate-addressed statements, steps, and prior theorems, and a small

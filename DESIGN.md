@@ -170,11 +170,28 @@ Self-extraction extends to proof. A paper may also hoist a proof checker
 as a payload scroll and carry its proofs as addressed scrolls in the
 corpus, so the paper is its own verified artifact rather than pointing at
 a formalization living in a separate repository; prior theorems are cited
-by coordinate exactly as bibliography entries are (§4). The seed already
-exists: libphext itself has been formally verified with Lean/Aeneas
-tooling in the author's own proving program, so the first self-verifying
-phextura papers have a real checker-and-proof story to carry. Stated
-honestly: phextura absorbs the prover as cargo and dissolves the
+by coordinate exactly as bibliography entries are (§4).
+
+The checker that would be hoisted today is Lean's, and its status in this
+design is **provisional**. The Lean payload is a bootstrap: adopted
+because it is proven and at hand — libphext itself has been formally
+verified with Lean/Aeneas tooling in the author's own proving program, so
+the first self-verifying phextura papers have a real checker-and-proof
+story to carry from day one — and explicitly pending replacement by a
+cleaner, more phext-native proof format. The payload is the bootstrap,
+not the destination.
+
+The native format, when it comes, is defined by what it must be:
+
+- proofs as plain-text scrolls, readable like the rest of the corpus;
+- statements, steps, and prior theorems addressed by coordinate — no
+  global proof namespace (the same wart as §6, one system deeper);
+- verification by a small reader-side checker whose full behavior can be
+  specified briefly and re-implemented independently, so no single
+  implementation is the format. Metamath is the standing existence proof
+  that a text-first proof format with a tiny verifier works.
+
+Stated honestly: phextura absorbs the prover as cargo and dissolves the
 paper/proof boundary; it does not replace the checker's kernel or the
 proof language — the checker remains itself, carried rather than competed
 with.
@@ -306,3 +323,9 @@ of the author's.
   unspecified here: an equation scroll holds notation as text, and choosing
   that notation is a separate design that must not be allowed to grow into
   a new macro language by accident.
+- A phext-native proof format is an explicit open research problem: format
+  TBD. §5.1 states its requirements — plain-text proof scrolls,
+  coordinate-addressed statements, steps, and prior theorems, and a small
+  reader-side checker that can be specified briefly and re-implemented
+  independently. Lean payloads are the provisional bootstrap until that
+  format exists, not the destination.

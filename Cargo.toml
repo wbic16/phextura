@@ -1,0 +1,8 @@
+[package]
+name = "phextura"
+version = "0.1.0"
+edition = "2021"
+description = "A document model for papers built on phext: an addressed corpus of scrolls instead of a one-dimensional character stream."
+
+[dependencies]
+libphext = "0.5.0"

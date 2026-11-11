@@ -166,6 +166,19 @@ the paper's other contents.
 - **The recursion closes.** A paper *about* phextura can carry phextura —
   the paper, its subject, and the machinery to read it, in one artifact.
 
+Self-extraction extends to proof. A paper may also hoist a proof checker
+as a payload scroll and carry its proofs as addressed scrolls in the
+corpus, so the paper is its own verified artifact rather than pointing at
+a formalization living in a separate repository; prior theorems are cited
+by coordinate exactly as bibliography entries are (§4). The seed already
+exists: libphext itself has been formally verified with Lean/Aeneas
+tooling in the author's own proving program, so the first self-verifying
+phextura papers have a real checker-and-proof story to carry. Stated
+honestly: phextura absorbs the prover as cargo and dissolves the
+paper/proof boundary; it does not replace the checker's kernel or the
+proof language — the checker remains itself, carried rather than competed
+with.
+
 ## 6. Styles are addressed scrolls, not a global namespace
 
 A style scroll (Collection 4) declares presentation facts as plain lines:

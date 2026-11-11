@@ -45,7 +45,7 @@ Within the paper, the Y coordinate's Collection component names the division:
 | 2 | Bibliography | One reference entry per scroll |
 | 3 | Media | Figures, images, audio, video, embedded foreign files |
 | 4 | Styles | Style scrolls (the phextura replacement for classes/packages) |
-| 5 | Supplements | Embedded documents: data papers, code, extended proofs |
+| 5 | Supplements | Embedded documents: data papers, code, extended proofs, toolchains (§5.1) |
 | 6 | Metadata | Title, authors, abstract, provenance, checksum manifest |
 
 Body addressing: Y.Book is the chapter. Within a chapter, X addresses
@@ -111,25 +111,30 @@ only, never as proof of identity).
 
 ## 5. Media and embedded documents live inside the paper
 
-libphext scrolls are text; the crate has no binary type, and phextura does
-not pretend otherwise. Embedding is therefore a stated convention of this
-design, in two tiers:
+Phext is a text format, and its binary support is canonical, not bolted
+on: binary content is **hoisted** — encoded as base64 text inside ordinary
+scrolls. A hoisted payload is opaque by design. The format stores and
+addresses it; what the bytes *mean*, and whether they are decoded at all,
+is deferred to the program rendering or processing the paper. Embedding
+therefore comes in two tiers:
 
 - **Text-native media embed literally.** SVG figures, vector descriptions,
   CSV/TSV data, source code, and any text format are scroll content as-is,
   in Collection 3 (media) or Collection 5 (supplements). A whole phextura
   paper embeds as a supplement with no encoding at all — it is already text
   in the same lattice.
-- **Binary payloads ride as encoded text.** A PNG, a video, an audio clip,
-  or a foreign document (e.g. a PDF) is stored as a header scroll plus
-  payload scrolls: the header declares content type, encoding (`base64`),
+- **Binary content is hoisted.** A PNG, a video, an audio clip, or a
+  foreign document (e.g. a PDF) is stored as a header scroll plus payload
+  scrolls: the header declares content type, encoding (`base64`),
   original filename, and the payload's libphext `checksum` (xxh3-128). A
   large payload spans a coordinate `Range` of scrolls, addressed and
-  replaceable as one unit (`range_replace`). The base64 size cost (~33%) is
-  stated plainly; what it buys is containment — the paper is one artifact,
-  nothing is referenced by filesystem path, and nothing can be silently
-  missing at render time (the header checksum fails first). A renderer
-  materializes payloads only at render time.
+  replaceable as one unit (`range_replace`). Base64 encodes three bytes in
+  four characters, so a hoisted payload occupies about 4/3 of its binary
+  size — a neutral property of the encoding. What hoisting provides is
+  containment: the paper is one artifact, nothing is referenced by
+  filesystem path, nothing can be silently missing at render time (the
+  header checksum fails first), and the payload stays opaque until a
+  processing program chooses to decode it.
 
 This deletes `\includegraphics`, `\input`-by-path, driver-specific
 `\special`s, and the "the paper is a directory" failure mode (W18, W19).
@@ -137,6 +142,29 @@ This deletes `\includegraphics`, `\input`-by-path, driver-specific
 A paper can therefore carry its own evidence: the dataset behind Figure 3,
 the code that produced it, and the supplementary proof are scrolls in the
 same corpus, citable by the same coordinates as the theorems.
+
+### 5.1 Self-extracting papers
+
+Hoisting has a consequence worth stating as its own design point: a
+phextura paper can encode literally anything — including a compiler and a
+copy of libphext itself. A corpus may therefore carry its own toolchain:
+the renderer (or the specific version of it the paper was written
+against), a compiler, and libphext, all as hoisted payload scrolls in
+Collection 5, declared in the Collection 6 manifest (`manifest`) alongside
+the paper's other contents.
+
+- **Extraction is the reader-side program's decision.** Payloads are
+  opaque; nothing in the format executes, extracts, or even decodes them.
+  A processing program decides whether a declared toolchain payload is
+  trustworthy and whether to extract and run it — the same trust decision
+  a reader already makes about any renderer, made explicit. Because every
+  payload is declared in the manifest with its checksum, nothing extracts
+  by surprise.
+- **Version rot dies.** A paper read in twenty years does not depend on a
+  future toolchain still behaving like today's: it pins its own,
+  bit-for-bit, inside itself.
+- **The recursion closes.** A paper *about* phextura can carry phextura —
+  the paper, its subject, and the machinery to read it, in one artifact.
 
 ## 6. Styles are addressed scrolls, not a global namespace
 
@@ -244,7 +272,8 @@ What phextura newly makes possible, that neither TeX nor LaTeX3 can express:
 a paper that *contains* its data, code, media, and supplements as addressed
 parts of itself; references that are the same object as their links;
 renumbering-free restructuring (insert, offset, merge, subtract are corpus
-operations, not editing rituals); and a document a machine can fully read —
+operations, not editing rituals); a paper that carries its own toolchain
+and is self-extracting (§5.1); and a document a machine can fully read —
 structure, references, provenance — without executing a single instruction
 of the author's.
 
@@ -253,9 +282,10 @@ of the author's.
 - Phextura does not replace TeX's typesetting quality on day one; the PDF
   backend's layout engine is future work, and the HTML backend is the
   honest first target.
-- Base64 payload scrolls are a convention, not a libphext feature; if
-  libphext grows a binary payload convention, phextura should adopt it and
-  delete §5's second tier.
+- Phextura does not define what a processing program does with a hoisted
+  payload — render it, extract it, execute it, or leave it opaque. That
+  decision belongs to the program (and its operator), not to the format
+  and not to this design; §5.1 declares the pattern, not a policy.
 - Collaborative editing semantics (concurrent writers on one corpus) are
   out of scope for this design; `merge`/`subtract` give the algebra, not
   the protocol.

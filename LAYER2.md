@@ -184,7 +184,10 @@ Second, kinds are an **open vocabulary over this core**, mirroring
 P8's role discipline: a file declares extension kinds in its manifest;
 a resolver treats the kind as an opaque token matched against the
 object table, and the core list is what generic tooling must
-understand.
+understand. Extension kinds declared by a format profile are
+registered by the profile document at the phextura repository
+root, which is the registry of record for extension kinds
+(TEI.md's `tei-element` is the first instance).
 
 ## 2. Claims and warrants under L2
 

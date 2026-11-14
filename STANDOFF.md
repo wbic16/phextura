@@ -401,6 +401,16 @@ only promotion path from proposed to base edge is acceptance (§5).
 A refutation from outside likewise begins as a proposal; the base
 gains a `refutation` edge only when its keeper honours one.
 
+**Structural kinds.** The kinds above are discourse kinds: entries
+*about* a base. A converter profile — a document that defines how a
+source format is carried into phextura — may additionally declare
+*structural* entry kinds: kinds whose entries record what a source
+document contained, rather than discourse about it. A structural kind
+is declared in the standoff document's manifest and in the declaring
+profile, and its entries follow §3.2's structure and §2.3's survival
+discipline unchanged. The first instance is TEI.md's `tei-element`,
+`tei-comment`, and `tei-pi`.
+
 ### 3.4 The events ledger
 
 An entry's lifecycle is data, kept in the standoff document's

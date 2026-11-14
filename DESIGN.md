@@ -82,6 +82,12 @@ free-text fallback. (Field evidence: the first demo paper needed
 proposition, corollary, assumption — load-bearing, referenced like
 theorems — and remark, none of which the original closed list had.)
 
+- Format profiles (TEI.md is the first instance) may allocate the
+  standard divisions and declare header-line vocabularies for
+  source-format facts, without minting roles; a profile's header
+  lines are data in the scroll, read by the same discipline as
+  `key:` lines.
+
 A **heading** is a block with role `@heading`; its text is the heading
 text. Headings are data, never markup prefixes smuggled into prose.
 
